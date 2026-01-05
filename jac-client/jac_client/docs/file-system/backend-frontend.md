@@ -221,7 +221,7 @@ my-app/
 See working examples in the codebase:
 
 - [`basic-full-stack/`](../../examples/basic-full-stack/) - Mixed backend/frontend in single file
-- [`full-stack-with-auth/`](../../examples/full-stack-with-auth/) - Complete full-stack application
+- [`all-in-one-example/`](../../examples/all-in-one-example/) - Complete full-stack application
 
 ## Related Documentation
 

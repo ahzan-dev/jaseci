@@ -10,7 +10,7 @@ Congratulations!  In this final step, you'll see the complete, production-ready 
 
 ### Complete `app.jac` File
 
-Here's your entire application in one file. This is the exact app from the `full-stack-with-auth` example:
+Here's your entire application in one file. This is the exact app from the `all-in-one-example` example:
 
 ```jac
 # Full Stack Todo App with Auth and React Router

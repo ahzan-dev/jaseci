@@ -1,7 +1,7 @@
 [project]
-name = "full-stack-with-auth"
+name = "all-in-one-example"
 version = "1.0.0"
-description = "Jac client application: full-stack-with-auth"
+description = "Jac client application: all-in-one-example"
 entry-point = "src/app.jac"
 
 [plugins.client]

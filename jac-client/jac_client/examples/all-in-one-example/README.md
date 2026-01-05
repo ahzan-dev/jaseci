@@ -1,4 +1,4 @@
-# full-stack-with-auth
+# all-in-one-example
 
 ## Running Jac Code
 

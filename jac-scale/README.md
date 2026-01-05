@@ -597,7 +597,7 @@ You can find more working examples in the examples directory:
 - [nested-folders/nested-advance](../jac-client/jac_client/examples/nested-folders/nested-advance/) - Advanced nested folder structure
 - [basic-auth](../jac-client/jac_client/examples/basic-auth/) - Basic authentication
 - [basic-auth-with-router](../jac-client/jac_client/examples/basic-auth-with-router/) - Authentication with routing
-<!-- - [full-stack-with-auth](../jac-client/jac_client/examples/full-stack-with-auth/) - Full-stack app with authentication -->
+<!-- - [all-in-one-example](../jac-client/jac_client/examples/all-in-one-example/) - Full-stack app with authentication -->
 - [css-styling/js-styling](../jac-client/jac_client/examples/css-styling/js-styling/) - JavaScript styling example
 - [css-styling/material-ui](../jac-client/jac_client/examples/css-styling/material-ui/) - Material-UI styling example
 - [css-styling/pure-css](../jac-client/jac_client/examples/css-styling/pure-css/) - Pure CSS styling example
