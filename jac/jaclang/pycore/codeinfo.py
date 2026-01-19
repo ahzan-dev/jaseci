@@ -20,6 +20,19 @@ if TYPE_CHECKING:
 
 
 @dataclass
+class WalkerQueryMetadata:
+    """Metadata for walker query/mutation decorators."""
+
+    walker_name: str
+    query_type: str  # "query" or "mutation"
+    key: list[str] = field(default_factory=list)
+    invalidates: list[str] = field(default_factory=list)
+    optimistic: bool = False
+    stale_time: int | None = None
+    refetch_interval: int | None = None
+
+
+@dataclass
 class ClientManifest:
     """Client-side rendering manifest metadata."""
 
@@ -31,6 +44,9 @@ class ClientManifest:
     imports: dict[str, str] = field(
         default_factory=dict
     )  # module_name -> resolved_path
+    walker_queries: dict[str, WalkerQueryMetadata] = field(
+        default_factory=dict
+    )  # walker_name -> query/mutation metadata
 
 
 class CodeGenTarget:

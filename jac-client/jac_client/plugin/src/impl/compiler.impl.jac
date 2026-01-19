@@ -28,6 +28,10 @@ impl ViteCompiler.compile_and_bundle(
         collected_exports=collected_exports,
         collected_globals=collected_globals
     );
+
+    # Generate React Query hooks if walker decorators are present
+    self.generate_query_hooks(module_manifest);
+
     self.copy_root_assets();
     self.create_entry_file(module_path);
     self.babel_processor.compile();
@@ -41,6 +45,22 @@ impl ViteCompiler.compile_and_bundle(
     client_exports = sorted(collected_exports);
     client_globals = list(collected_globals.keys());
     return (bundle_code, bundle_hash, client_exports, client_globals);
+}
+
+"""Generate React Query hooks from walker decorator metadata."""
+impl ViteCompiler.generate_query_hooks(self: ViteCompiler, manifest: Any) -> None {
+    if (manifest is None or not hasattr(manifest, 'walker_queries')) {
+        return;
+    }
+    if not manifest.walker_queries {
+        return;
+    }
+
+    hook_generator = HookGenerator(self.compiled_dir);
+    hooks_code = hook_generator.generate_hooks(manifest);
+    if hooks_code {
+        hook_generator.write_hooks_file(hooks_code);
+    }
 }
 
 """Create the main entry file for Vite bundling."""

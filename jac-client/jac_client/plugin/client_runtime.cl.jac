@@ -13,8 +13,25 @@ import from 'react-router-dom' {
     useLocation as reactRouterUseLocation,
     useParams as reactRouterUseParams
 }
+import from '@tanstack/react-query' {
+    QueryClient as ReactQueryClient,
+    QueryClientProvider as ReactQueryClientProvider,
+    useQuery as reactQueryUseQuery,
+    useMutation as reactQueryUseMutation,
+    useQueryClient as reactQueryUseQueryClient
+}
 
 def:pub __jacJsx(tag: any, props: dict = {}, children: any = []) -> any;
+
+# React Query client instance (singleton)
+glob __queryClient = new ReactQueryClient({
+    "defaultOptions": {
+        "queries": {
+            "staleTime": 60000,
+            "refetchOnWindowFocus": False
+        }
+    }
+});
 
 # React hooks re-exported for auto-injection by `has` variables
 glob:pub useState = reactUseState,
@@ -25,10 +42,17 @@ glob:pub useState = reactUseState,
      Navigate = ReactRouterNavigate,
      useNavigate = reactRouterUseNavigate,
      useLocation = reactRouterUseLocation,
-     useParams = reactRouterUseParams;
+     useParams = reactRouterUseParams,
+     # React Query exports
+     QueryClient = ReactQueryClient,
+     QueryClientProvider = ReactQueryClientProvider,
+     useQuery = reactQueryUseQuery,
+     useMutation = reactQueryUseMutation,
+     useQueryClient = reactQueryUseQueryClient;
 
 def:pub useRouter -> dict;
 def:pub navigate(path: str) -> None;
+def:pub JacQueryProvider(props: dict) -> any;
 async def:pub __jacSpawn(left: str, right: str = "", fields: dict = {}) -> any;
 def:pub jacSpawn(left: str, right: str = "", fields: dict = {}) -> any;
 async def:pub __jacCallFunction(function_name: str, args: dict = {}) -> any;

@@ -10,6 +10,7 @@ import from .babel_processor { BabelProcessor }
 import from .import_processor { ImportProcessor }
 import from .jac_to_js { JacToJSCompiler }
 import from .vite_bundler { ViteBundler }
+import from .hook_generator { HookGenerator }
 
 with entry {
     if TYPE_CHECKING { }
@@ -64,4 +65,5 @@ class ViteCompiler {
     def compile_and_bundle(
         self: ViteCompiler, module: ModuleType, module_path: Path
     ) -> tuple[str, str, list[str], list[str]];
+    def generate_query_hooks(self: ViteCompiler, manifest: Any) -> None;
 }

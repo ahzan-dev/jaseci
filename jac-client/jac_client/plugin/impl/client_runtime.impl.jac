@@ -45,6 +45,12 @@ impl navigate(path: str) -> None {
     window.location.hash = "#" + path;
 }
 
+impl JacQueryProvider(props: dict) -> any {
+    return <ReactQueryClientProvider client={__queryClient}>
+        {props.children}
+    </ReactQueryClientProvider>;
+}
+
 impl __jacSpawn(left: str, right: str = "", fields: dict = {}) -> any {
     token = __getLocalStorage("jac_token");
     url = f"/walker/{left}";

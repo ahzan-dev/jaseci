@@ -55,6 +55,96 @@ impl EsastGenPass._literal_value(expr: (uni.UniNode | None)) -> (object | None) 
     return None;
 }
 
+"""Extract argument value from a decorator function call."""
+impl EsastGenPass._get_decorator_arg(
+    call_node: uni.FuncCall, arg_name: str, <>default: Any = None
+) -> Any {
+    for param in call_node.params {
+        if isinstance(param, uni.KWPair) {
+            if (param.key and isinstance(param.key, uni.Name)) {
+                if param.key.sym_name == arg_name {
+                    return self._literal_value(param.value);
+                }
+            }
+        }
+    }
+    return <>default;
+}
+
+"""Extract @query and @mutation decorator metadata from walker archetype."""
+impl EsastGenPass._extract_walker_query_metadata(<>node: uni.Archetype) -> None {
+    # Only process walkers with decorators
+    if (not <>node.decorators or (<>node.arch_type.name != Tok.KW_WALKER)) {
+        return;
+    }
+
+    walker_name = <>node.name.sym_name;
+
+    for dec in <>node.decorators {
+        # Handle @query(...) or @mutation(...) decorators
+        if isinstance(dec, uni.FuncCall) {
+            dec_name: (str | None) = None;
+            if isinstance(dec.target, uni.Name) {
+                dec_name = dec.target.sym_name;
+            } elif isinstance(dec.target, uni.AtomTrailer) {
+                # Handle cases like module.query()
+                if isinstance(dec.target.right, uni.Name) {
+                    dec_name = dec.target.right.sym_name;
+                }
+            }
+
+            if dec_name == "query" {
+                # Extract @query(key=["todos"], staleTime=60000, refetchInterval=5000)
+                key = self._get_decorator_arg(dec, "key", []);
+                stale_time = self._get_decorator_arg(dec, "staleTime", None);
+                refetch_interval = self._get_decorator_arg(dec, "refetchInterval", None);
+
+                metadata = WalkerQueryMetadata(
+                    walker_name=walker_name,
+                    query_type="query",
+                    key=key if isinstance(key, list) else [key] if key else [],
+                    stale_time=stale_time,
+                    refetch_interval=refetch_interval
+                );
+                self.client_manifest.walker_queries[walker_name] = metadata;
+
+            } elif dec_name == "mutation" {
+                # Extract @mutation(invalidates=["todos"], optimistic=True)
+                invalidates = self._get_decorator_arg(dec, "invalidates", []);
+                optimistic = self._get_decorator_arg(dec, "optimistic", False);
+
+                metadata = WalkerQueryMetadata(
+                    walker_name=walker_name,
+                    query_type="mutation",
+                    invalidates=invalidates if isinstance(invalidates, list) else [invalidates] if invalidates else [],
+                    optimistic=optimistic if isinstance(optimistic, bool) else False
+                );
+                self.client_manifest.walker_queries[walker_name] = metadata;
+            }
+        }
+        # Handle simple @query or @mutation (without parentheses) - use walker name as key
+        elif isinstance(dec, uni.Name) {
+            dec_name = dec.sym_name;
+
+            if dec_name == "query" {
+                metadata = WalkerQueryMetadata(
+                    walker_name=walker_name,
+                    query_type="query",
+                    key=[walker_name]  # Default key is walker name
+                );
+                self.client_manifest.walker_queries[walker_name] = metadata;
+
+            } elif dec_name == "mutation" {
+                metadata = WalkerQueryMetadata(
+                    walker_name=walker_name,
+                    query_type="mutation"
+                );
+                self.client_manifest.walker_queries[walker_name] = metadata;
+            }
+        }
+    }
+}
+
 """Process semicolon."""
 impl EsastGenPass.exit_semi(<>node: uni.Semi) -> None {
     ;
@@ -1954,6 +2044,10 @@ impl EsastGenPass.exit_archetype(<>node: uni.Archetype) -> None {
         self.client_manifest.has_client = True;
         self.client_manifest.exports.append(<>node.name.sym_name);
     }
+
+    # Extract @query/@mutation decorator metadata for walkers
+    self._extract_walker_query_metadata(<>node);
+
     body_stmts: list[es.MethodDefinition | es.PropertyDefinition | es.StaticBlock] = [];
     has_members: list[uni.ArchHas] = [];
     inner = (

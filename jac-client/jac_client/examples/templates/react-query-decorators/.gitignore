@@ -1,0 +1,14 @@
+# Build outputs
+.jac/
+node_modules/
+*.jbc
+*.jir
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Python
+__pycache__/
+*.py[cod]

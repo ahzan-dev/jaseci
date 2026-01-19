@@ -30,6 +30,7 @@ import from jaclang.pycore.constant { SymbolType }
 import from jaclang.pycore.constant { Tokens as Tok }
 import from jaclang.pycore.passes.ast_gen { BaseAstGenPass }
 import from jaclang.pycore.passes.ast_gen.jsx_processor { EsJsxProcessor }
+import from jaclang.pycore.codeinfo { WalkerQueryMetadata }
 import from jaclang.pycore.modresolver {
     convert_to_js_import_path,
     resolve_relative_path
@@ -263,4 +264,8 @@ obj EsastGenPass(BaseAstGenPass[es.Statement]) {
     def exit_token(<>node: uni.Token) -> None;
     def exit_semi(<>node: uni.Semi) -> None;
     def _literal_value(expr: (uni.UniNode | None)) -> (object | None);
+    def _extract_walker_query_metadata(<>node: uni.Archetype) -> None;
+    def _get_decorator_arg(
+        call_node: uni.FuncCall, arg_name: str, <>default: Any = None
+    ) -> Any;
 }
