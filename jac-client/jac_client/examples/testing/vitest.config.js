@@ -1,0 +1,48 @@
+/**
+ * Vitest configuration for jac-client testing example.
+ */
+import { defineConfig } from 'vitest/config';
+import react from '@vitejs/plugin-react';
+import path from 'path';
+
+export default defineConfig({
+  plugins: [react()],
+  test: {
+    // Test environment
+    environment: 'jsdom',
+
+    // Setup files run before each test
+    setupFiles: ['./vitest.setup.js'],
+
+    // Include test patterns
+    include: [
+      '**/*.test.js',
+      '**/*.test.ts',
+      '**/*.spec.js',
+      '**/*.spec.ts',
+      // Compiled .cl.jac test files
+      '.jac/client/compiled/**/*.test.js'
+    ],
+
+    // Exclude patterns
+    exclude: ['node_modules', '.jac/client/build'],
+
+    // Coverage configuration
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'json', 'html'],
+      include: ['.jac/client/compiled/**/*.js'],
+      exclude: ['**/*.test.js', '**/node_modules/**']
+    },
+
+    // Global test utilities
+    globals: true
+  },
+
+  resolve: {
+    alias: {
+      '@': path.resolve(__dirname, '.jac/client/compiled'),
+      '@jac-client/runtime': path.resolve(__dirname, '.jac/client/compiled/client_runtime.js')
+    }
+  }
+});

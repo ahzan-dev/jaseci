@@ -1,6 +1,6 @@
 {
   "name": "@jac-client/dev-deps",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Default devDependencies for Jac client projects",
   "dependencies": {
     "vite": "^6.4.1",
@@ -11,6 +11,10 @@
     "@vitejs/plugin-react": "^4.2.1",
     "typescript": "^5.3.3",
     "@types/react": "^18.2.0",
-    "@types/react-dom": "^18.2.0"
+    "@types/react-dom": "^18.2.0",
+    "vitest": "^3.0.0",
+    "@testing-library/react": "^16.0.0",
+    "@testing-library/jest-dom": "^6.0.0",
+    "jsdom": "^25.0.0"
   }
 }
