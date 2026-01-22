@@ -75,6 +75,7 @@ walker delete_todo {
 # ============================================
 
 cl import from react { useState }
+cl import from "./client_runtime" { JacQueryProvider }
 
 # Import auto-generated hooks (created by jac-client from decorators)
 cl import from "./generated_hooks" {

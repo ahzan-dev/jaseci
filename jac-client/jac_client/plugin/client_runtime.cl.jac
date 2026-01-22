@@ -23,15 +23,22 @@ import from '@tanstack/react-query' {
 
 def:pub __jacJsx(tag: any, props: dict = {}, children: any = []) -> any;
 
-# React Query client instance (singleton)
-glob __queryClient = new ReactQueryClient({
-    "defaultOptions": {
-        "queries": {
-            "staleTime": 60000,
-            "refetchOnWindowFocus": False
-        }
+# React Query client - lazy initialized to avoid 'new' keyword issues
+glob __queryClientInstance: any = None;
+
+def __getQueryClient() -> any {
+    if __queryClientInstance == None {
+        __queryClientInstance = ReactQueryClient({
+            "defaultOptions": {
+                "queries": {
+                    "staleTime": 60000,
+                    "refetchOnWindowFocus": False
+                }
+            }
+        });
     }
-});
+    return __queryClientInstance;
+}
 
 # React hooks re-exported for auto-injection by `has` variables
 glob:pub useState = reactUseState,
@@ -48,7 +55,9 @@ glob:pub useState = reactUseState,
      QueryClientProvider = ReactQueryClientProvider,
      useQuery = reactQueryUseQuery,
      useMutation = reactQueryUseMutation,
-     useQueryClient = reactQueryUseQueryClient;
+     useQueryClient = reactQueryUseQueryClient,
+     # JacQueryProvider is exported via def:pub declaration
+     __getQueryClient = __getQueryClient;
 
 def:pub useRouter -> dict;
 def:pub navigate(path: str) -> None;

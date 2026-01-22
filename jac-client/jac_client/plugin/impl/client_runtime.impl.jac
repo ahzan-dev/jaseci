@@ -46,7 +46,8 @@ impl navigate(path: str) -> None {
 }
 
 impl JacQueryProvider(props: dict) -> any {
-    return <ReactQueryClientProvider client={__queryClient}>
+    queryClient = __getQueryClient();
+    return <ReactQueryClientProvider client={queryClient}>
         {props.children}
     </ReactQueryClientProvider>;
 }
