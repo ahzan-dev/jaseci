@@ -292,9 +292,12 @@ def _render_config_to_toml(config: dict, project_name: str) -> str {
             }
         }
 
-        # Write section header
+        # Write section header (quote each dotted key segment if needed)
         if section_name {
-            lines.append(f"[{section_name}]");
+            quoted_section = '.'.join(
+                _quote_toml_key(part) for part in section_name.split('.')
+            );
+            lines.append(f"[{quoted_section}]");
         }
 
         # Write simple values

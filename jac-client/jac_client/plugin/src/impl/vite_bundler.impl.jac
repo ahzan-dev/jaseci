@@ -127,18 +127,23 @@ impl ViteBundler.create_tsconfig(self: ViteBundler) -> Path {
         'include': merged_include,
         'exclude': merged_exclude
     };
-    # Write the config to .jac/client/configs/tsconfig.json (no root config file)
+    # Write the config to .jac/client/configs/tsconfig.json
     tsconfig_path.write_text(json.dumps(tsconfig_data, indent=2), encoding='utf-8');
+    # Also copy to project root so external tools (e.g. npx shadcn) can find it
+    root_tsconfig = self.project_dir / 'tsconfig.json';
+    if not root_tsconfig.exists() {
+        shutil.copy2(tsconfig_path, root_tsconfig);
+    }
     return tsconfig_path;
 }
 
 """
-Clean up root package.json and move bun.lockb to configs/.
+Clean up root bun.lockb by moving it to configs/.
 
-        Remove root package.json and move bun.lockb to configs/.
+        Move bun.lockb to configs/ after install. Root package.json is kept
+        so that external tools (e.g. npx shadcn) can discover the project.
 """
 impl ViteBundler._cleanup_root_package_files(self: ViteBundler) -> None {
-    root_package_json = self.project_dir / 'package.json';
     root_bun_lockb = self.project_dir / 'bun.lockb';
     build_dir = self._get_client_dir();
     configs_dir = build_dir / 'configs';
@@ -150,15 +155,38 @@ impl ViteBundler._cleanup_root_package_files(self: ViteBundler) -> None {
         }
         shutil.move(str(root_bun_lockb), str(configs_bun_lockb));
     }
-    if root_package_json.exists() {
-        root_package_json.unlink();
+}
+
+"""
+Ensure a node_modules symlink exists at the project root.
+
+        Creates <project_root>/node_modules -> .jac/client/node_modules so that
+        external tools (e.g. npx shadcn) can resolve packages from the project root.
+"""
+impl ViteBundler._ensure_root_node_modules_symlink(self: ViteBundler) -> None {
+    build_dir = self._get_client_dir();
+    target = build_dir / 'node_modules';
+    link = self.project_dir / 'node_modules';
+    if link.is_symlink() {
+        # Replace broken or incorrect symlinks
+        if not link.exists() or link.resolve() != target.resolve() {
+            link.unlink();
+        } else {
+            return;
+        }
+    } elif link.exists() {
+        # A real node_modules directory exists; don't touch it
+        return;
+    }
+    if target.exists() {
+        link.symlink_to(target);
     }
 }
 
 """
-Ensure root package.json exists temporarily for bun commands.
+Ensure root package.json exists for bun commands and external tools.
 
-        Create root package.json temporarily if it doesn't exist.
+        Copy package.json to root if it doesn't exist and create node_modules symlink.
 """
 impl ViteBundler._ensure_root_package_json(self: ViteBundler) -> None {
     generated_package_json = self._get_client_dir() / 'configs' / 'package.json';
@@ -169,6 +197,16 @@ impl ViteBundler._ensure_root_package_json(self: ViteBundler) -> None {
     if not root_package_json.exists() {
         shutil.copy2(generated_package_json, root_package_json);
     }
+    self._ensure_root_node_modules_symlink();
+}
+
+"""Quote a JavaScript object key if it is not a valid identifier."""
+def _quote_js_key(key: str) -> str {
+    import re;
+    if re.match(r'^[A-Za-z_$][A-Za-z0-9_$]*$', key) {
+        return key;
+    }
+    return f"'{key}'";
 }
 
 """Format config object as JavaScript object string."""
@@ -181,20 +219,21 @@ impl ViteBundler._format_config_object(
     indent_str = ' ' * indent;
     items = [];
     for (key, value) in config.items() {
+        js_key = _quote_js_key(key);
         if isinstance(value, str) {
-            items.append(f"{indent_str}  {key}: '{value}',");
+            items.append(f"{indent_str}  {js_key}: '{value}',");
         } elif isinstance(value, bool) {
-            items.append(f"{indent_str}  {key}: {str(value).lower()},");
+            items.append(f"{indent_str}  {js_key}: {str(value).lower()},");
         } elif isinstance(value, (int, float)) {
-            items.append(f"{indent_str}  {key}: {value},");
+            items.append(f"{indent_str}  {js_key}: {value},");
         } elif isinstance(value, list) {
             list_str = ', '.join(repr(v) for v in value);
-            items.append(f"{indent_str}  {key}: [{list_str}],");
+            items.append(f"{indent_str}  {js_key}: [{list_str}],");
         } elif isinstance(value, dict) {
             nested = self._format_config_object(value, (indent + 2));
-            items.append(f"{indent_str}  {key}: {{{nested}{indent_str}  }},");
+            items.append(f"{indent_str}  {js_key}: {{{nested}{indent_str}  }},");
         } else {
-            items.append(f"{indent_str}  {key}: {repr(value)},");
+            items.append(f"{indent_str}  {js_key}: {repr(value)},");
         }
     }
     return '\n'.join(items);
@@ -352,6 +391,11 @@ impl ViteBundler._generate_vite_config_content(
     extensions_str = ', '.join(f'"{ext}"' for ext in extensions);
     build_config = vite_config_data.get('build', {});
     resolve_config = vite_config_data.get('resolve', {});
+    # Extract alias overrides separately to merge with built-in aliases
+    alias_overrides = resolve_config.pop('alias', {}) if isinstance(resolve_config, dict) else {};
+    alias_overrides_str = self._format_config_object(alias_overrides, indent=6)
+    if (isinstance(alias_overrides, dict) and alias_overrides)
+    else '';
     resolve_overrides_str = self._format_config_object(resolve_config, indent=6)
     if (isinstance(resolve_config, dict) and resolve_config)
     else '';
@@ -424,6 +468,7 @@ export default defineConfig({{
     alias: {{
       "@jac/runtime": path.resolve(buildDir, "{compiled_utils_relative}"),
       "@jac-client/assets": path.resolve(buildDir, "{compiled_assets_relative}"),
+{alias_overrides_str}
     }},
     extensions: [{extensions_str}],
 {resolve_overrides_str}
@@ -537,6 +582,7 @@ export default defineConfig({{
       alias: {{
         "@jac/runtime": path.resolve(buildDir, "{compiled_utils_relative}"),
         "@jac-client/assets": path.resolve(buildDir, "{compiled_assets_relative}"),
+{alias_overrides_str}
       }},
       extensions: [{extensions_str}],
 {resolve_overrides_str}
@@ -629,6 +675,8 @@ impl ViteBundler.build(self: ViteBundler, entry_file: Optional[Path] = None) -> 
     self.output_dir.mkdir(parents=True, exist_ok=True);
     # Always regenerate package.json to pick up any dependency changes
     self.create_package_json();
+    # Keep root package.json in sync so external tools can discover the project
+    self._ensure_root_package_json();
     try {
         build_dir = self._get_client_dir();
         node_modules = build_dir / 'node_modules';
@@ -663,6 +711,7 @@ impl ViteBundler.build(self: ViteBundler, entry_file: Optional[Path] = None) -> 
                     raise ClientBundleError(error_msg) from None ;
                 }
                 console.print(f"\n  ✔ Dependencies installed ({elapsed:.1f}s)");
+                self._ensure_root_node_modules_symlink();
             } except FileNotFoundError {
                 # This shouldn't happen since we check for bun at the start
                 raise ClientBundleError(
@@ -937,6 +986,7 @@ impl ViteBundler._ensure_dev_dependencies(self: ViteBundler, build_dir: Path) ->
             raise ClientBundleError("Failed to install dependencies") ;
         }
         console.print(f"\n  ✔ Dependencies installed ({elapsed:.1f}s)");
+        self._ensure_root_node_modules_symlink();
     } finally {
         # Clean up temp package.json
         if build_package_json.exists() {

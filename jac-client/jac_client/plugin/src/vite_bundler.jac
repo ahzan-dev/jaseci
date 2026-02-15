@@ -55,6 +55,7 @@ class ViteBundler {
 
     def _ensure_root_package_json(self: ViteBundler) -> None;
     def _cleanup_root_package_files(self: ViteBundler) -> None;
+    def _ensure_root_node_modules_symlink(self: ViteBundler) -> None;
     def _generate_vite_config_content(
         self: ViteBundler,
         is_dev: bool,
