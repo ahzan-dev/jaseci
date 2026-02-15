@@ -6,9 +6,9 @@
 
 ---
 
-## **Jac's Native Superset of Python and TypeScript/JavaScript**
+## **Jac Supersets Python**
 
-Jac is designed as a superset of both Python and TypeScript/JavaScript, providing full compatibility with both the PyPI and npm ecosystems. Developers can leverage their existing knowledge while accessing new capabilities for graph-based and object-spatial programming.
+Jac supersets Python and JavaScript, providing full compatibility with both the PyPI and npm ecosystems. Developers can leverage their existing knowledge while accessing new capabilities for graph-based and object-spatial programming.
 
 ### **How it Works: Transpilation to Native Python**
 
@@ -193,7 +193,7 @@ project/
     walker TaskCreator {
         has title: str;
 
-        can create with `root entry {
+        can create with Root entry {
             if utils.validate_title(self.title) {
                 task = models.Task(title=self.title);
                 here ++> task;
@@ -271,7 +271,7 @@ project/
     ::py::
 
     walker TaskCreator {
-        can create with `root entry {
+        can create with Root entry {
             # Use inline Python functions
             task_data = get_sample_task();
 
@@ -334,7 +334,7 @@ project/
     walker TaskCreator {
         has title: str;
 
-        can create with `root entry {
+        can create with Root entry {
             # Call Python module functions
             if validators.validate_title(self.title) {
                 task = models.Task(title=self.title);
@@ -443,7 +443,7 @@ project/
     walker TaskCreator {
         has title: str;
 
-        can create with `root entry {
+        can create with Root entry {
             task = Task(title=self.title);
             here ++> task;
             print(f" Created: {task.title}");

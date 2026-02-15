@@ -84,7 +84,7 @@ The server file has three sections: the app entry point, AI types and functions,
 cl {
     import from frontend { app as ClientApp }
 
-    def:pub app -> any {
+    def:pub app -> JsxElement {
         return
             <ClientApp />;
     }
@@ -166,7 +166,7 @@ Now for the walkers. Here's `AddTodo` -- compare it to the `def:pub add_todo` fr
 walker:priv AddTodo {
     has title: str;
 
-    can create with `root entry {
+    can create with Root entry {
         category = str(categorize(self.title)).split(".")[-1].lower();
         new_todo = here ++> Todo(
             id=str(uuid4()),
@@ -187,7 +187,7 @@ Line by line:
 
 - **`walker:priv AddTodo`** -- a private walker. Only authenticated users can spawn it, and it runs on their personal root node.
 - **`has title: str`** -- a parameter you pass when spawning the walker.
-- **`` can create with `root entry ``** -- this ability fires when the walker enters the root node.
+- **`` can create with Root entry ``** -- this ability fires when the walker enters the root node.
 - **`here`** -- refers to the current node (root). This is what `root` was in `def:pub` functions.
 - **`self.title`** -- accesses the walker's own properties.
 - **`report { ... }`** -- sends data back to whoever spawned this walker.
@@ -198,7 +198,7 @@ The `ListTodos` walker shows the **accumulator pattern** -- a common walker idio
 walker:priv ListTodos {
     has todos: list = [];
 
-    can collect with `root entry {
+    can collect with Root entry {
         visit [-->];
     }
 
@@ -211,7 +211,7 @@ walker:priv ListTodos {
         });
     }
 
-    can report_all with `root exit {
+    can report_all with Root exit {
         report self.todos;
     }
 }
@@ -231,7 +231,7 @@ The walker's `has todos: list = []` state persists across the entire traversal -
 walker:priv ToggleTodo {
     has todo_id: str;
 
-    can search with `root entry { visit [-->]; }
+    can search with Root entry { visit [-->]; }
 
     can toggle with Todo entry {
         if here.id == self.todo_id {
@@ -244,7 +244,7 @@ walker:priv ToggleTodo {
 walker:priv DeleteTodo {
     has todo_id: str;
 
-    can search with `root entry { visit [-->]; }
+    can search with Root entry { visit [-->]; }
 
     can delete with Todo entry {
         if here.id == self.todo_id {
@@ -265,7 +265,7 @@ The `GenerateShoppingList` walker is interesting because it does two things in o
 walker:priv GenerateShoppingList {
     has meal_description: str;
 
-    can generate with `root entry {
+    can generate with Root entry {
         # First clear old ingredients
         visit [-->];
         # Then generate new ones
@@ -305,7 +305,7 @@ When `visit [-->]` runs, the walker visits all connected nodes. If any are `Meal
 walker:priv ListMealPlan {
     has ingredients: list = [];
 
-    can collect with `root entry { visit [-->]; }
+    can collect with Root entry { visit [-->]; }
 
     can gather with MealIngredient entry {
         self.ingredients.append({
@@ -314,11 +314,11 @@ walker:priv ListMealPlan {
         });
     }
 
-    can report_all with `root exit { report self.ingredients; }
+    can report_all with Root exit { report self.ingredients; }
 }
 
 walker:priv ClearMealPlan {
-    can collect with `root entry { visit [-->]; }
+    can collect with Root entry { visit [-->]; }
 
     can clear with MealIngredient entry {
         del here;
@@ -362,7 +362,7 @@ Two new import styles:
 The component declares its state and method signatures:
 
 ```jac
-def:pub app -> any {
+def:pub app -> JsxElement {
     has isLoggedIn: bool = False,
         checkingAuth: bool = True,
         isSignup: bool = False,
@@ -585,7 +585,7 @@ Displays a single todo with toggle and delete:
 ```jac
 """Todo item component."""
 
-def:pub TodoItem(todo: dict, onToggle: any, onDelete: any) -> any {
+def:pub TodoItem(todo: dict, onToggle: any, onDelete: any) -> JsxElement {
     return
         <div className="todo-item">
             <input
@@ -617,7 +617,7 @@ Displays a single ingredient with cost and carb badge:
 ```jac
 """Ingredient item component for the shopping list."""
 
-def:pub IngredientItem(ingredient: dict) -> any {
+def:pub IngredientItem(ingredient: dict) -> JsxElement {
     return
         <div className="ingredient-item">
             <div className="ingredient-info">
@@ -679,7 +679,7 @@ All the complete files are in the collapsible sections below. Create each file i
     cl {
         import from frontend { app as ClientApp }
 
-        def:pub app -> any {
+        def:pub app -> JsxElement {
             return
                 <ClientApp />;
         }
@@ -735,7 +735,7 @@ All the complete files are in the collapsible sections below. Create each file i
     walker:priv AddTodo {
         has title: str;
 
-        can create with `root entry {
+        can create with Root entry {
             category = str(categorize(self.title)).split(".")[-1].lower();
             new_todo = here ++> Todo(
                 id=str(uuid4()),
@@ -754,7 +754,7 @@ All the complete files are in the collapsible sections below. Create each file i
     walker:priv ListTodos {
         has todos: list = [];
 
-        can collect with `root entry {
+        can collect with Root entry {
             visit [-->];
         }
 
@@ -767,7 +767,7 @@ All the complete files are in the collapsible sections below. Create each file i
             });
         }
 
-        can report_all with `root exit {
+        can report_all with Root exit {
             report self.todos;
         }
     }
@@ -775,7 +775,7 @@ All the complete files are in the collapsible sections below. Create each file i
     walker:priv ToggleTodo {
         has todo_id: str;
 
-        can search with `root entry {
+        can search with Root entry {
             visit [-->];
         }
 
@@ -793,7 +793,7 @@ All the complete files are in the collapsible sections below. Create each file i
     walker:priv DeleteTodo {
         has todo_id: str;
 
-        can search with `root entry {
+        can search with Root entry {
             visit [-->];
         }
 
@@ -810,7 +810,7 @@ All the complete files are in the collapsible sections below. Create each file i
     walker:priv GenerateShoppingList {
         has meal_description: str;
 
-        can generate with `root entry {
+        can generate with Root entry {
             # First clear old ingredients
             visit [-->];
             # Then generate new ones
@@ -844,7 +844,7 @@ All the complete files are in the collapsible sections below. Create each file i
     walker:priv ListMealPlan {
         has ingredients: list = [];
 
-        can collect with `root entry {
+        can collect with Root entry {
             visit [-->];
         }
 
@@ -858,13 +858,13 @@ All the complete files are in the collapsible sections below. Create each file i
             });
         }
 
-        can report_all with `root exit {
+        can report_all with Root exit {
             report self.ingredients;
         }
     }
 
     walker:priv ClearMealPlan {
-        can collect with `root entry {
+        can collect with Root entry {
             visit [-->];
         }
 
@@ -893,7 +893,7 @@ All the complete files are in the collapsible sections below. Create each file i
         GenerateShoppingList, ListMealPlan, ClearMealPlan
     }
 
-    def:pub app -> any {
+    def:pub app -> JsxElement {
         has isLoggedIn: bool = False,
             checkingAuth: bool = True,
             isSignup: bool = False,
@@ -1320,7 +1320,7 @@ All the complete files are in the collapsible sections below. Create each file i
     ```jac
     """Todo item component."""
 
-    def:pub TodoItem(todo: dict, onToggle: any, onDelete: any) -> any {
+    def:pub TodoItem(todo: dict, onToggle: any, onDelete: any) -> JsxElement {
         return
             <div className="todo-item">
                 <input
@@ -1350,7 +1350,7 @@ All the complete files are in the collapsible sections below. Create each file i
     ```jac
     """Ingredient item component for the shopping list."""
 
-    def:pub IngredientItem(ingredient: dict) -> any {
+    def:pub IngredientItem(ingredient: dict) -> JsxElement {
         return
             <div className="ingredient-item">
                 <div className="ingredient-info">
@@ -1567,7 +1567,7 @@ Over three parts, you built the same app three ways -- each time adding capabili
 The new concepts from this part:
 
 - **`walker:priv`** -- per-user walker that requires authentication
-- **`` can X with `root entry ``** -- ability that fires when the walker enters root
+- **`` can X with Root entry ``** -- ability that fires when the walker enters root
 - **`can X with Todo entry`** -- ability that fires when the walker enters a Todo node
 - **`visit [-->]`** -- move the walker to all connected nodes
 - **`here`** / **`self`** -- current node / walker state

@@ -1,6 +1,3 @@
-import from jaclang.cli.console { console }
-import from jaclang.cli.banners { JAC_DISCORD_URL }
-
 """Helper function to convert TransportResponse to dict for JSONResponse."""
 def _transport_response_to_dict(
     transport_response: TransportResponse
@@ -60,37 +57,51 @@ def _transport_response_to_json_response(
     );
 }
 
-impl JacAPIServer.start(dev: bool = False, no_client: bool = False) -> None {
+impl JacAPIServer.start(
+    dev: bool = False,
+    no_client: bool = False,
+    on_ready: Callable[[], None] | None = None
+) -> None {
     self.introspector.load();
-    # Eagerly build client bundle if there are client exports (skip in dev or no_client mode)
+    # Eagerly build client bundle if there are client exports (skip in dev, no_client, or PWA mode)
     if not dev and not no_client {
         client_exports = self.introspector._client_manifest.get('exports', []);
         if client_exports {
             import time;
             import sys;
-            start_time = time.time();
-            try {
-                with console.status(
-                    "[cyan]Building client bundle...[/cyan]", spinner="dots"
-                ) as status {
-                    self.introspector.ensure_bundle();
+            import from jaclang.project.config { get_config }
+            config = get_config();
+            dist_dir = config.get_client_dir() / 'dist' if config else None;
+            is_pwa = dist_dir and (dist_dir / 'manifest.json').exists();
+            if is_pwa {
+                console.print("  ✔ PWA bundle already built", style="success");
+            } else {
+                start_time = time.time();
+                try {
+                    with console.status(
+                        "[cyan]Building client bundle...[/cyan]", spinner="dots"
+                    ) as status {
+                        self.introspector.ensure_bundle();
+                    }
+                    elapsed = time.time() - start_time;
+                    console.print(
+                        f"  ✔ Client bundle ready ({elapsed:.1f}s)", style="success"
+                    );
+                } except Exception as e {
+                    console.warning(f"Failed to build client bundle: {e}");
+                    console.print(
+                        "\n  Client pages will not be available until this is fixed.\n",
+                        style="muted",
+                        file=sys.stderr
+                    );
+                    console.info(
+                        'Try again after running: jac clean --all', emoji=True
+                    );
+                    console.info(
+                        f'If it still doesn\'t work, ask for help at {JAC_DISCORD_URL}',
+                        emoji=True
+                    );
                 }
-                elapsed = time.time() - start_time;
-                console.print(
-                    f"  ✔ Client bundle ready ({elapsed:.1f}s)", style="success"
-                );
-            } except Exception as e {
-                console.warning(f"Failed to build client bundle: {e}");
-                console.print(
-                    "\n  Client pages will not be available until this is fixed.\n",
-                    style="muted",
-                    file=sys.stderr
-                );
-                console.info('Try again after running: jac clean --all', emoji=True);
-                console.info(
-                    f'If it still doesn\'t work, ask for help at {JAC_DISCORD_URL}',
-                    emoji=True
-                );
             }
         }
     }
@@ -110,14 +121,20 @@ impl JacAPIServer.start(dev: bool = False, no_client: bool = False) -> None {
         self.register_dynamic_function_endpoint();
         self.register_dynamic_introspection_endpoints();
         self.register_dynamic_webhook_endpoint();
+        self.register_dynamic_websocket_endpoint();
     } else {
         self.register_walkers_endpoints();
         self.register_functions_endpoints();
         self.register_webhook_endpoints();
+        self.register_websocket_endpoints();
     }
     self.register_root_asset_endpoint();
     self._configure_openapi_security();
     self.user_manager.create_user('__guest__', '__no_password__');
+    # Call the ready callback (e.g., to print startup banner)
+    if on_ready {
+        on_ready();
+    }
     self.server.run_server(port=self.port);
 }
 
@@ -408,10 +425,8 @@ impl JacAPIServer.register_client_js_endpoint -> None {
 impl JacAPIServer.serve_client_js_callback -> Callable[..., Response] {
     def callback -> Response {
         try {
-            self.introspector.load();
-            self.introspector.ensure_bundle();
             return Response(
-                content=self.introspector._bundle.code,
+                content=Jac.get_client_js(self.introspector),
                 media_type='application/javascript'
             );
         } except RuntimeError as exc {
@@ -642,9 +657,9 @@ impl JacAPIServer.create_function_callback(
 
 impl JacAPIServer.register_walkers_endpoints -> None {
     for walker_name in self.get_walkers() {
-        # Skip walkers configured for webhook transport - they use /webhook/{walker_name} instead
-        transport_type = self.get_transport_type_for_walker(walker_name);
-        if transport_type == TransportType.WEBHOOK {
+        # Skip walkers configured for webhook or websocket transport
+        protocol = self.get_walker_protocol(walker_name);
+        if protocol == APIProtocol.WEBHOOK or protocol == APIProtocol.WEBSOCKET {
             continue;
         }
         walker_cls = self.get_walkers()[walker_name];
@@ -655,7 +670,7 @@ impl JacAPIServer.register_walkers_endpoints -> None {
         self.server.add_endpoint(
             JEndPoint(
                 method=spec_method,
-                path=f"{spec_path}/{{node}}",
+                path=f"{spec_path}/{{nd}}",
                 callback=self.create_walker_callback(walker_name, has_node_param=True),
                 parameters=self.create_walker_parameters(
                     walker_name, invoke_on_root=False, method=spec_method
@@ -741,7 +756,7 @@ impl JacAPIServer.create_walker_callback(
     import from jaclang.runtimelib.transport { TransportResponse, Meta }
     requires_auth = self.introspector.is_auth_required_for_walker(walker_name);
     async def callback(
-        node: (str | None) = None, **kwargs: JsonValue
+        nd: (str | None) = None, **kwargs: JsonValue
     ) -> TransportResponse {
         username: (str | None) = None;
         if requires_auth {
@@ -763,8 +778,8 @@ impl JacAPIServer.create_walker_callback(
                 );
             }
         }
-        if node {
-            kwargs['_jac_spawn_node'] = node;
+        if nd {
+            kwargs['_jac_spawn_node'] = nd;
         }
         result = await self.execution_manager.spawn_walker(
             self.get_walkers()[walker_name], kwargs, (username or '__guest__')
@@ -1190,6 +1205,64 @@ impl JacAPIServer.postinit -> None {
         }
         self.server.app.add_middleware(CustomHeadersMiddleware);
     }
+    # Initialize Prometheus metrics if enabled
+    import from jac_scale.factories.utility_factory { UtilityFactory }
+    import time;
+    metrics_config = get_scale_config().get_metrics_config();
+    self._metrics = UtilityFactory.create_metrics('prometheus', metrics_config);
+    if self._metrics.is_enabled() {
+        metrics_collector = self._metrics;
+        metrics_endpoint = metrics_config.get('endpoint', '/metrics');
+        # Add metrics middleware to track request timing
+        class MetricsMiddleware(BaseHTTPMiddleware) {
+            async def dispatch(
+                self: MetricsMiddleware, request: Any, call_next: Any
+            ) -> Any {
+                # Skip metrics endpoint itself
+                if request.url.path == metrics_endpoint {
+                    return await call_next(request);
+                }
+
+                metrics_collector.request_started();
+                start_time = time.perf_counter();
+
+                try {
+                    response = await call_next(request);
+                    duration = time.perf_counter() - start_time;
+                    metrics_collector.record_request(
+                        request.method,
+                        request.url.path,
+                        response.status_code,
+                        duration
+                    );
+                    return response;
+                } except Exception as e {
+                    duration = time.perf_counter() - start_time;
+                    metrics_collector.record_request(
+                        request.method, request.url.path, 500, duration
+                    );
+                    raise ;
+                } finally {
+                    metrics_collector.request_finished();
+                }
+            }
+        }
+        self.server.app.add_middleware(MetricsMiddleware);
+        # Register /metrics endpoint
+        self.server.add_endpoint(
+            JEndPoint(
+                method=HTTPMethod.GET,
+                path=metrics_endpoint,
+                callback=self._metrics.get_endpoint_handler(),
+                parameters=[],
+                response_model=None,
+                tags=['Monitoring'],
+                summary='Prometheus metrics',
+                description='Exposes application metrics in Prometheus format for scraping'
+            )
+        );
+        logger.info(f"Prometheus metrics enabled at {metrics_endpoint}");
+    }
 }
 
 impl JacAPIServer.register_sso_endpoints -> None {
@@ -1282,7 +1355,7 @@ impl JacAPIServer.register_dynamic_walker_endpoint -> None {
     async def dynamic_walker_handler(
         request: Request,
         walker_name: str,
-        node: str | None = None,
+        nd: str | None = None,
         Authorization: str | None = None
     ) -> TransportResponse {
         # Parse request body or query params to get walker fields
@@ -1316,8 +1389,8 @@ impl JacAPIServer.register_dynamic_walker_endpoint -> None {
         }
 
         # Reject walkers configured for webhook transport - they use /webhook/{walker_name} instead
-        transport_type = self.get_transport_type_for_walker(walker_name);
-        if transport_type == TransportType.WEBHOOK {
+        protocol = self.get_walker_protocol(walker_name);
+        if protocol == APIProtocol.WEBHOOK {
             return TransportResponse.fail(
                 code='BAD_REQUEST',
                 message=f"Walker '{walker_name}' is configured as a webhook. Use /webhook/{walker_name} instead.",
@@ -1348,8 +1421,8 @@ impl JacAPIServer.register_dynamic_walker_endpoint -> None {
         }
 
         # Add node to kwargs if provided
-        if node {
-            kwargs['_jac_spawn_node'] = node;
+        if nd {
+            kwargs['_jac_spawn_node'] = nd;
         }
 
         result = await self.execution_manager.spawn_walker(
@@ -1957,18 +2030,18 @@ impl JacAPIServer.register_api_key_endpoints -> None {
     );
 }
 
-"""Get the transport type for a walker by checking its restspec."""
-impl JacAPIServer.get_transport_type_for_walker(walker_name: str) -> str {
+"""Get the API protocol for a walker by checking its restspec."""
+impl JacAPIServer.get_walker_protocol(walker_name: str) -> str {
     walkers = self.get_walkers();
     if walker_name not in walkers {
-        return TransportType.HTTP;
+        return APIProtocol.HTTP;
     }
     walker_cls = walkers[walker_name];
     restspec = walker_cls.restspec if walker_cls?.restspec else None;
-    if restspec?.webhook {
-        return TransportType.WEBHOOK;
+    if restspec?.protocol {
+        return restspec.protocol;
     }
-    return TransportType.HTTP;
+    return APIProtocol.HTTP;
 }
 
 """Create webhook callback for a walker with HMAC-SHA256 signature verification."""
@@ -2083,7 +2156,7 @@ impl JacAPIServer.create_webhook_parameters(walker_name: str) -> list[APIParamet
             type=ParameterType.HEADER
         )
     );
-    # Add walker fields as body parameters (excluding transport_type)
+    # Add walker fields as body parameters (excluding protocol)
     walker_fields = self.introspector.introspect_walker(
         self.get_walkers()[walker_name]
     )['fields'];
@@ -2106,12 +2179,12 @@ impl JacAPIServer.create_webhook_parameters(walker_name: str) -> list[APIParamet
     return parameters;
 }
 
-"""Register webhook endpoints for walkers with transport_type=WEBHOOK."""
+"""Register webhook endpoints for walkers with protocol=WEBHOOK."""
 impl JacAPIServer.register_webhook_endpoints -> None {
     for walker_name in self.get_walkers() {
-        transport_type = self.get_transport_type_for_walker(walker_name);
+        protocol = self.get_walker_protocol(walker_name);
 
-        if transport_type == TransportType.WEBHOOK {
+        if protocol == APIProtocol.WEBHOOK {
             self.server.add_endpoint(
                 JEndPoint(
                     method=HTTPMethod.POST,
@@ -2150,8 +2223,8 @@ impl JacAPIServer.register_dynamic_webhook_endpoint -> None {
         }
 
         # Verify this walker is configured for webhook transport
-        transport_type = self.get_transport_type_for_walker(walker_name);
-        if transport_type != TransportType.WEBHOOK {
+        protocol = self.get_walker_protocol(walker_name);
+        if protocol != APIProtocol.WEBHOOK {
             return TransportResponse.fail(
                 code='BAD_REQUEST',
                 message=f"Walker '{walker_name}' is not configured as a webhook. Use /walker/{walker_name} instead.",
@@ -2272,4 +2345,147 @@ impl JacAPIServer.register_dynamic_webhook_endpoint -> None {
             description='Dynamically routes to webhook walkers. Supports HMR - walker changes are reflected immediately.'
         )
     );
+}
+
+"""Get or lazily initialize the WebSocket connection manager."""
+impl JacAPIServer.get_ws_manager -> WebSocketConnectionManager {
+    if not self._ws_manager {
+        self._ws_manager = WebSocketConnectionManager();
+    }
+    return self._ws_manager;
+}
+
+"""Create a WebSocket handler for a specific walker."""
+impl JacAPIServer.create_websocket_handler(walker_name: str) -> Callable {
+    ws_manager = self.get_ws_manager();
+    requires_auth = self.introspector.is_auth_required_for_walker(walker_name);
+    # Check if this walker has broadcast enabled
+    walker_cls = self.get_walkers()[walker_name];
+    restspec = walker_cls.restspec
+    if walker_cls?.restspec and walker_cls.restspec
+    else None;
+    is_broadcast = restspec.broadcast if restspec and restspec?.broadcast else False;
+    async def websocket_handler(websocket: WebSocket) -> None {
+        await ws_manager.connect(websocket, walker_name);
+        try {
+            while True {
+                data = await websocket.receive_json();
+
+                # Handle authentication if required
+                username: (str | None) = None;
+                if requires_auth {
+                    token = data.pop('token', None)
+                    or websocket.query_params.get('token');
+                    if token {
+                        username = self.user_manager.validate_jwt_token(token);
+                    }
+                    if not username {
+                        await websocket.send_json(
+                            {
+                                'ok': False,
+                                'error': {
+                                    'code': 'UNAUTHORIZED',
+                                    'message': 'Invalid or missing token'
+                                }
+                            }
+                        );
+                        continue;
+                    }
+                }
+
+                # Spawn the walker with received fields
+                try {
+                    result = await self.execution_manager.spawn_walker(
+                        self.get_walkers()[walker_name],
+                        data,
+                        (username or '__guest__')
+                    );
+                    if isinstance(result, dict) and 'error' in result {
+                        # Errors always go only to sender
+                        await websocket.send_json(
+                            {
+                                'ok': False,
+                                'error': {
+                                    'code': 'EXECUTION_ERROR',
+                                    'message': result.get(
+                                        'error', 'Walker execution failed'
+                                    )
+                                }
+                            }
+                        );
+                    } else {
+                        response = {'ok': True, 'data': result};
+                        if is_broadcast {
+                            # Broadcast to ALL connections of this walker
+                            await ws_manager.broadcast(walker_name, response);
+                        } else {
+                            # Send only to sender
+                            await websocket.send_json(response);
+                        }
+                    }
+                } except Exception as e {
+                    logger.error(
+                        f"WebSocket walker execution error for '{walker_name}': {e}"
+                    );
+                    # Errors always go only to sender
+                    await websocket.send_json(
+                        {
+                            'ok': False,
+                            'error': {'code': 'INTERNAL_ERROR', 'message': str(e)}
+                        }
+                    );
+                }
+            }
+        } except WebSocketDisconnect {
+            ws_manager.disconnect(websocket, walker_name);
+        } except Exception as e {
+            logger.error(f"WebSocket error for walker '{walker_name}': {e}");
+            ws_manager.disconnect(websocket, walker_name);
+        }
+    }
+    return websocket_handler;
+}
+
+"""Register WebSocket endpoints for walkers with protocol=WEBSOCKET (production mode)."""
+impl JacAPIServer.register_websocket_endpoints -> None {
+    for walker_name in self.get_walkers() {
+        protocol = self.get_walker_protocol(walker_name);
+        if protocol == APIProtocol.WEBSOCKET {
+            handler = self.create_websocket_handler(walker_name);
+            self.server.app.websocket(f"/ws/{walker_name}")(handler);
+            logger.info(f"Registered WebSocket endpoint: /ws/{walker_name}");
+        }
+    }
+}
+
+"""Register dynamic WebSocket endpoint for HMR support (dev mode)."""
+impl JacAPIServer.register_dynamic_websocket_endpoint -> None {
+    ws_manager = self.get_ws_manager();
+    async def dynamic_ws_handler(websocket: WebSocket, walker_name: str) -> None {
+        if self._hmr_pending {
+            self.introspector.load(force_reload=True);
+            self._hmr_pending = False;
+        }
+
+        walkers = self.get_walkers();
+        if walker_name not in walkers {
+            await websocket.close(
+                code=4004, reason=f"Walker '{walker_name}' not found"
+            );
+            return;
+        }
+
+        protocol = self.get_walker_protocol(walker_name);
+        if protocol != APIProtocol.WEBSOCKET {
+            await websocket.close(
+                code=4000,
+                reason=f"Walker '{walker_name}' is not a WebSocket walker. Use /walker/{walker_name} instead."
+            );
+            return;
+        }
+
+        handler = self.create_websocket_handler(walker_name);
+        await handler(websocket);
+    }
+    self.server.app.websocket("/ws/{walker_name}")(dynamic_ws_handler);
 }

@@ -64,7 +64,7 @@ For detailed guides and tutorials, see the **[docs folder](jac_client/docs/)**:
 cl import from react { useEffect }
 
 cl {
-    def Counter() -> any {
+    def Counter() -> JsxElement {
         # useState is automatically available - no import needed!
         [count, setCount] = useState(0);
 
@@ -82,7 +82,7 @@ cl {
         </div>;
     }
 
-    def app() -> any {
+    def app() -> JsxElement {
         return Counter();
     }
 }
@@ -105,21 +105,21 @@ node Todo {
 
 walker create_todo {
     has text: str;
-    can create with `root entry {
+    can create with Root entry {
         new_todo = here ++> Todo(text=self.text);
         report new_todo;
     }
 }
 
 walker read_todos {
-    can read with `root entry {
-        visit [-->(`?Todo)];
+    can read with Root entry {
+        visit [-->(?:Todo)];
     }
 }
 
 # Frontend: React component
 cl {
-    def app() -> any {
+    def app() -> JsxElement {
         # useState is automatically available - no import needed!
         [todos, setTodos] = useState([]);
 

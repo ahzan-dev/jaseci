@@ -17,7 +17,7 @@ import from uuid { UUID }
 import redis;
 import from pymongo { MongoClient }
 import from pymongo.errors { ConnectionFailure }
-import from jaclang.pycore.archetype { Anchor, NodeAnchor, Root }
+import from jaclang.jac0core.archetype { Anchor, NodeAnchor, Root }
 import from jaclang.runtimelib.memory {
     CacheMemory,
     PersistentMemory,
@@ -46,7 +46,7 @@ obj RedisBackend(CacheMemory) {
     def put(anchor: Anchor) -> None;
     def delete(id: UUID) -> None;
     def close -> None;
-    def has(id: UUID) -> bool;
+    def `has(id: UUID) -> bool;
     def query(
         filter: (Callable[[Anchor], bool] | None) = None
     ) -> Generator[Anchor, None, None];
@@ -88,7 +88,7 @@ obj MongoBackend(PersistentMemory) {
     def put(anchor: Anchor) -> None;
     def delete(id: UUID) -> None;
     def close -> None;
-    def has(id: UUID) -> bool;
+    def `has(id: UUID) -> bool;
     def query(
         filter: (Callable[[Anchor], bool] | None) = None
     ) -> Generator[Anchor, None, None];

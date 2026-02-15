@@ -19,10 +19,10 @@ def:pub get_todos -> list {
         Todo("raise funding", False),
         Todo("change the world", False)
     ];
-    return [{"title": t.title, "done": t.done} for t in [root-->](`?Todo)];
+    return [{"title": t.title, "done": t.done} for t in [root-->](?:Todo)];
 }
 
-cl def:pub app() -> any {
+cl def:pub app() -> JsxElement {
     has items: list = [];
 
     async can with entry {

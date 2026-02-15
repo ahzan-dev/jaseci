@@ -39,14 +39,14 @@ def summarize(text: str) -> str by llm();
 ```jac
 # Backend
 walker get_data {
-    can fetch with `root entry {
+    can fetch with Root entry {
         report {"message": "Hello from backend"};
     }
 }
 
 # Frontend
 cl {
-    def:pub app() -> any {
+    def:pub app() -> JsxElement {
         data = root spawn get_data();
         return <div>{data}</div>;
     }
@@ -63,7 +63,7 @@ cl {
 2. [Object-Spatial Programming](../tutorials/language/osp.md) - Nodes, edges, walkers
 3. [Testing](../tutorials/language/testing.md) - Write and run tests
 
-**Key concept:** Jac is a superset of Python and TypeScript/JavaScript, adding graphs as first-class citizens and walkers for graph traversal.
+**Key concept:** Jac supersets Python and JavaScript, adding graphs as first-class citizens and walkers for graph traversal.
 
 ```jac
 node Person { has name: str; }
@@ -102,7 +102,7 @@ jac start app.jac --scale
 
 ### Coming from Python
 
-You'll feel at home. Jac is a Python superset.
+You'll feel at home. Jac supersets Python.
 
 **What's different:**
 

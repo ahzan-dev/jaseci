@@ -15,7 +15,7 @@ impl check(
     parse_only: bool = False,
     nowarn: bool = False
 ) -> int {
-    import from jaclang.pycore.program { JacProgram }
+    import from jaclang.jac0core.program { JacProgram }
     if isinstance(paths, str) {
         paths = [paths];
     }
@@ -134,7 +134,7 @@ impl check(
 
 """Lint .jac files and report violations."""
 impl lint(paths: list, fix: bool = False, ignore: str = "") -> int {
-    import from jaclang.pycore.program { JacProgram }
+    import from jaclang.jac0core.program { JacProgram }
     if isinstance(paths, str) {
         paths = [paths];
     }
@@ -161,6 +161,7 @@ impl lint(paths: list, fix: bool = False, ignore: str = "") -> int {
             console.error(f"File '{file_path}' does not exist.");
             return (False, 1);
         }
+        console.print(f"  Linting {file_path}...");
         try {
             prog = JacProgram.jac_file_linter(str(path_obj));
             error_count = 0;
@@ -181,6 +182,7 @@ impl lint(paths: list, fix: bool = False, ignore: str = "") -> int {
             console.error(f"File '{file_path}' does not exist.");
             return (False, 1, 1);
         }
+        console.print(f"  Lint-fixing {file_path}...");
         try {
             prog = JacProgram.jac_file_formatter(str(path_obj), auto_lint=True);
             try {
@@ -296,15 +298,19 @@ impl lint(paths: list, fix: bool = False, ignore: str = "") -> int {
 }
 
 """Format .jac files with improved code style."""
-impl format(paths: list, to_screen: bool = False, lintfix: bool = False) -> int {
-    import from jaclang.pycore.program { JacProgram }
+impl format(
+    paths: list, to_screen: bool = False, lintfix: bool = False, check: bool = False
+) -> int {
+    import from jaclang.jac0core.program { JacProgram }
     if isinstance(paths, str) {
         paths = [paths];
     }
+    # Track unformatted files for check mode
+    unformatted_files: list[str] = [];
     def write_formatted_code(code: str, target_path: str) -> None {
         if to_screen {
             console.print(code);
-        } else {
+        } elif not check {
             with open(target_path, 'w') as f {
                 f.write(code);
             }
@@ -317,6 +323,7 @@ impl format(paths: list, to_screen: bool = False, lintfix: bool = False) -> int 
             console.error(f"File '{file_path}' does not exist.");
             return (False, False, 0);
         }
+        console.print(f"  Formatting {file_path}...");
         try {
             prog = JacProgram.jac_file_formatter(str(path_obj), auto_lint=lintfix);
             if prog.mod.main.has_syntax_errors {
@@ -376,6 +383,9 @@ impl format(paths: list, to_screen: bool = False, lintfix: bool = False) -> int 
                 failed_files += 1;
             } elif changed {
                 changed_files += 1;
+                if check {
+                    unformatted_files.append(path);
+                }
             }
         } elif path_obj.is_dir() {
             for jac_file in path_obj.glob('**/*.jac') {
@@ -389,6 +399,9 @@ impl format(paths: list, to_screen: bool = False, lintfix: bool = False) -> int 
                     failed_files += 1;
                 } elif changed {
                     changed_files += 1;
+                    if check {
+                        unformatted_files.append(str(jac_file));
+                    }
                 }
             }
         } else {
@@ -396,6 +409,36 @@ impl format(paths: list, to_screen: bool = False, lintfix: bool = False) -> int 
             failed_files += 1;
         }
     }
+    # In check mode, report all issues together
+    if check {
+        has_errors = False;
+        if len(unformatted_files) > 0 {
+            console.error("The following files are not properly formatted:");
+            for file in unformatted_files {
+                console.error(f"  jac format --lintfix {file}");
+            }
+            has_errors = True;
+        }
+        if failed_files > 0 {
+            console.error(
+                f"\n{failed_files} file(s) have syntax errors (see errors above)."
+            );
+            console.error(
+                "Fix the syntax errors or rename files with '*_err.jac' suffix to exclude them."
+            );
+            has_errors = True;
+        }
+        if has_errors {
+            return 1;
+        }
+        if (len(paths) == 1) and Path(paths[0]).is_dir() {
+            console.success(
+                f"Checked {total_files}/{total_files} '.jac' files - all formatted correctly."
+            );
+        }
+        return 0;
+    }
+    # Non-check mode summary
     if (((len(paths) == 1) and Path(paths[0]).is_dir()) or (failed_files > 0)) {
         summary_msg = f"Formatted {(total_files - failed_files)}/{total_files} '.jac' files ({changed_files} changed).";
         if failed_files > 0 {
@@ -403,6 +446,9 @@ impl format(paths: list, to_screen: bool = False, lintfix: bool = False) -> int 
         } else {
             console.success(summary_msg);
         }
+    }
+    if failed_files > 0 {
+        return 1;
     }
     if total_errors > 0 {
         return 1;
@@ -414,7 +460,7 @@ impl format(paths: list, to_screen: bool = False, lintfix: bool = False) -> int 
 }
 
 """Run the test suite in the specified .jac file or directory."""
-impl test(
+impl `test(
     filepath: str = "",
     test_name: str = "",
     filter: str = "",
@@ -423,7 +469,7 @@ impl test(
     directory: str = "",
     verbose: bool = False
 ) -> int {
-    import from jaclang.pycore.runtime { JacRuntime as Jac }
+    import from jaclang.jac0core.runtime { JacRuntime as Jac }
     Jac.setup();
     failcount = Jac.run_test(
         filepath=filepath,
@@ -446,5 +492,43 @@ impl gen_parser -> int {
     import from jaclang.compiler { gen_all_parsers }
     gen_all_parsers();
     console.success('Parser generated.');
+    return 0;
+}
+
+"""Extract grammar from the Jac parser."""
+impl grammar(lark: bool = False, output: str = "") -> int {
+    import from jaclang.jac0core.program { JacProgram }
+    import from jaclang.compiler.passes.tool.grammar_extract_pass { GrammarExtractPass }
+    import jaclang;
+    parser_path = str(
+        Path(jaclang.__file__).parent / "compiler" / "parser" / "parser.jac"
+    );
+    prog = JacProgram();
+    mod = prog.compile(parser_path, no_cgen=True);
+    if prog.errors_had {
+        console.error("Failed to compile parser module.");
+        for e in prog.errors_had {
+            console.error(f"  {e}");
+        }
+        return 1;
+    }
+    pass_ = GrammarExtractPass(ir_in=mod, prog=prog);
+    if len(pass_.rules) == 0 {
+        console.error("No grammar rules extracted.");
+        return 1;
+    }
+    text = pass_.emit_lark() if lark else pass_.emit_ebnf();
+    if output {
+        with open(output, "w") as f {
+            f.write(text);
+            f.write("\n");
+        }
+        fmt_name = "Lark" if lark else "EBNF";
+        console.success(
+            f"{fmt_name} grammar ({len(pass_.rules)} rules) written to {output}"
+        );
+    } else {
+        console.print(text);
+    }
     return 0;
 }

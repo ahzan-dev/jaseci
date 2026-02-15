@@ -2192,13 +2192,16 @@ impl DesktopTarget.dev(
     # Step 2: Start web dev server
     console.print("  Starting web dev server...", style="muted");
     # Desktop webview needs an explicit backend URL (same-origin doesn't work)
-    dev_config_path = bundler.create_dev_vite_config(
+    dev_config_path = bundler.create_vite_config(
         entry_file,
-        api_port=api_port,
-        api_base_url_override=_make_localhost_url(api_port)
+        api_base_url_override=_make_localhost_url(api_port),
+        is_dev=True,
+        api_port=api_port
     );
-    # Start Vite dev server
-    vite_process = bundler.start_dev_server(port=vite_port);
+    # Start Vite dev server (suppress initial output for cleaner startup)
+    vite_process = bundler.start_dev_server(
+        port=vite_port, suppress_initial_output=True
+    );
     if not vite_process {
         raise RuntimeError("Failed to start Vite dev server") ;
     }

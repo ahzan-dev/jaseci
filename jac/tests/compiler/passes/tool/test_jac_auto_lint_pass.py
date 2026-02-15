@@ -9,8 +9,8 @@ from pathlib import Path
 
 import pytest
 
-import jaclang.pycore.unitree as uni
-from jaclang.pycore.program import JacProgram
+import jaclang.jac0core.unitree as uni
+from jaclang.jac0core.program import JacProgram
 
 
 # Fixture path helper
@@ -272,14 +272,20 @@ class TestCombineConsecutiveHas:
         # Verify statements were actually combined (count has statements)
         # app function: 1 combined has statement (originally 3)
         app_section = formatted.split("def app")[1].split("}")[0]
-        app_has_count = app_section.count("has ")
+        app_has_count = sum(
+            1 for line in app_section.splitlines() if line.lstrip().startswith("has ")
+        )
         assert app_has_count == 1, (
             f"Expected 1 has statement in app, got {app_has_count}"
         )
 
         # render method: 1 combined has statement (originally 3)
         render_section = formatted.split("def render")[1].split("}")[0]
-        render_has_count = render_section.count("has ")
+        render_has_count = sum(
+            1
+            for line in render_section.splitlines()
+            if line.lstrip().startswith("has ")
+        )
         assert render_has_count == 1, (
             f"Expected 1 has statement in render, got {render_has_count}"
         )
@@ -454,7 +460,7 @@ class TestFormatCommandIntegration:
                 updated_impl = f.read()
 
             # The impl file should have been fixed: param names changed from a,b to x,y
-            assert "impl Calculator.add(x: int, y: int)" in updated_impl, (
+            assert ".add(x: int, y: int)" in updated_impl, (
                 f"Impl file should have been updated with fixed params.\n"
                 f"Got: {updated_impl}"
             )
@@ -487,40 +493,40 @@ class TestFormatCommandIntegration:
 
 
 class TestRemoveUnnecessaryEscape:
-    """Tests for removing unnecessary <> escaping from names."""
+    """Tests for removing unnecessary backtick escaping from names."""
 
     def test_unnecessary_escape_removed(
         self, auto_lint_fixture_path: Callable[[str], str]
     ) -> None:
-        """Test that unnecessary <> escaping is removed from non-keyword names."""
+        """Test that unnecessary backtick escaping is removed from non-keyword names."""
         input_path = auto_lint_fixture_path("unnecessary_escape.jac")
 
         prog = JacProgram.jac_file_formatter(input_path, auto_lint=True)
         formatted = prog.mod.main.gen.jac
 
-        # Regular variable names should NOT have <> escaping
-        assert "<>foo" not in formatted
-        assert "<>bar" not in formatted
-        assert "<>myvar" not in formatted
-        assert "<>count" not in formatted
-        assert "<>data" not in formatted
-        assert "<>name" not in formatted
-        assert "<>value" not in formatted
-        assert "<>item" not in formatted
-        assert "<>result" not in formatted
-        assert "<>input_val" not in formatted
-        assert "<>output_val" not in formatted
-        assert "<>total" not in formatted
+        # Regular variable names should NOT have backtick escaping
+        assert "`foo" not in formatted
+        assert "`bar" not in formatted
+        assert "`myvar" not in formatted
+        assert "`count" not in formatted
+        assert "`data" not in formatted
+        assert "`name" not in formatted
+        assert "`value" not in formatted
+        assert "`item" not in formatted
+        assert "`result" not in formatted
+        assert "`input_val" not in formatted
+        assert "`output_val" not in formatted
+        assert "`total" not in formatted
 
-        # But the actual names should still be present (without <>)
+        # But the actual names should still be present (without backtick)
         assert "foo = 1" in formatted
         assert "bar = 2" in formatted
         assert "myvar = 3" in formatted
 
-        # Jac keywords SHOULD still have <> escaping
-        assert "<>node = 10" in formatted
-        assert "<>edge = 20" in formatted
-        assert "<>walker = 30" in formatted
+        # Jac keywords SHOULD still have backtick escaping
+        assert "`node = 10" in formatted
+        assert "`edge = 20" in formatted
+        assert "`walker = 30" in formatted
 
 
 class TestRemoveEmptyParens:
@@ -627,10 +633,13 @@ class TestHasattrConversion:
         assert "instance?.value" in formatted
         assert "instance?.name" in formatted
 
-        # hasattr calls should be replaced with null-safe access
+        # hasattr calls in safe patterns (ternary, guard-and-use) should be converted
         assert 'hasattr(instance, "value")' not in formatted
-        assert 'hasattr(instance, "name")' not in formatted
         assert "hasattr(instance, 'value')" not in formatted
+
+        # hasattr in standalone boolean context (or False) should NOT be converted
+        # because hasattr() returns bool while obj?.attr returns the value
+        assert 'hasattr(instance, "name") or False' in formatted
 
         # The if-else expressions with hasattr should be converted to or expressions
         # Pattern: obj.attr if hasattr(obj, "attr") else default
@@ -828,37 +837,35 @@ class TestNestedClassSignatureFix:
                 target_path = get_target_path(stmt)
                 impl_defs[target_path] = stmt
 
-        # OuterClass.__init__ should have: self, shared, private (already correct)
-        assert "OuterClass.__init__" in impl_defs, "OuterClass.__init__ impl not found"
-        outer_init_params = get_impl_params(impl_defs["OuterClass.__init__"])
+        # OuterClass.init should have: self, shared, private (already correct)
+        assert "OuterClass.init" in impl_defs, "OuterClass.init impl not found"
+        outer_init_params = get_impl_params(impl_defs["OuterClass.init"])
         assert outer_init_params == ["self", "shared", "private"], (
-            f"OuterClass.__init__ should have [self, shared, private], got: {outer_init_params}"
+            f"OuterClass.init should have [self, shared, private], got: {outer_init_params}"
         )
 
-        # OuterClass.InnerClass.__init__ should be FIXED from (self, a, b) to (self, name)
+        # OuterClass.InnerClass.init should be FIXED from (self, a, b) to (self, name)
         # NOT: (self, shared, private) which would happen if bug exists
-        assert "OuterClass.InnerClass.__init__" in impl_defs, (
-            "OuterClass.InnerClass.__init__ impl not found"
+        assert "OuterClass.InnerClass.init" in impl_defs, (
+            "OuterClass.InnerClass.init impl not found"
         )
-        inner_init_params = get_impl_params(impl_defs["OuterClass.InnerClass.__init__"])
+        inner_init_params = get_impl_params(impl_defs["OuterClass.InnerClass.init"])
         assert inner_init_params == ["self", "name"], (
-            f"OuterClass.InnerClass.__init__ should be FIXED to [self, name] "
+            f"OuterClass.InnerClass.init should be FIXED to [self, name] "
             f"(matching InnerClass.init decl), got: {inner_init_params}. "
             f"Original impl had [self, a, b]. "
             f"If you got [self, shared, private], the bug is that auto-lint looked up "
-            f"OuterClass.__init__ instead of InnerClass.__init__."
+            f"OuterClass.init instead of InnerClass.init."
         )
 
-        # OuterClass.AnotherInner.__init__ should be FIXED from (self, foo) to (self, x, y)
+        # OuterClass.AnotherInner.init should be FIXED from (self, foo) to (self, x, y)
         # (plus kwonly z, but we only check positional params here)
-        assert "OuterClass.AnotherInner.__init__" in impl_defs, (
-            "OuterClass.AnotherInner.__init__ impl not found"
+        assert "OuterClass.AnotherInner.init" in impl_defs, (
+            "OuterClass.AnotherInner.init impl not found"
         )
-        another_init_params = get_impl_params(
-            impl_defs["OuterClass.AnotherInner.__init__"]
-        )
+        another_init_params = get_impl_params(impl_defs["OuterClass.AnotherInner.init"])
         assert another_init_params == ["self", "x", "y"], (
-            f"OuterClass.AnotherInner.__init__ should be FIXED to [self, x, y] "
+            f"OuterClass.AnotherInner.init should be FIXED to [self, x, y] "
             f"(matching AnotherInner.init decl), got: {another_init_params}. "
             f"Original impl had [self, foo]."
         )
@@ -1084,7 +1091,7 @@ class TestCommentPreservation:
         formatted = prog.mod.main.gen.jac
 
         # Comments around escaped names
-        assert "# Test angle bracket escaped names with comments" in formatted
+        assert "# Test backtick escaped names with comments" in formatted
         assert "# Comment before escaped name" in formatted
         assert "# Method with escaped param" in formatted
 

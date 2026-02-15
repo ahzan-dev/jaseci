@@ -65,7 +65,7 @@ python -m jaclang run myfile.jac
 Walker did not execute any abilities
 ```
 
-**Cause:** Walker spawned at root but missing `with \`root entry` handler.
+**Cause:** Walker spawned at root but missing `with Root entry` handler.
 
 **Wrong:**
 
@@ -85,7 +85,7 @@ with entry {
 
 ```jac
 walker Greeter {
-    can start with `root entry {
+    can start with Root entry {
         visit [-->];  # Start visiting connected nodes
     }
 
@@ -202,6 +202,28 @@ obj Example {
 
 ---
 
+## Cache & Setup Issues
+
+### Bytecode Cache Problems
+
+**Common symptoms:**
+
+- `No module named 'jaclang.pycore'`
+- Setup stalling during first-time compilation
+- Strange errors after upgrading packages
+
+**Solution:**
+
+```bash
+jac purge
+```
+
+This clears the global bytecode cache. Works even when the cache is corrupted.
+
+> **💡 Tip:** Always run `jac purge` after upgrading Jaseci packages.
+
+---
+
 ## Runtime Errors
 
 ### Walker reports are empty
@@ -222,7 +244,7 @@ with entry {
 
 ```jac
 walker Debug {
-    can start with `root entry {
+    can start with Root entry {
         print("At root");
         print(f"Connected: {[-->]}");
         visit [-->];
@@ -257,7 +279,7 @@ with entry {
     print(f"All connected: {len(all_nodes)}");
 
     # Check with filter
-    people = [-->](`?Person);
+    people = [-->](?:Person);
     print(f"People: {len(people)}");
 }
 ```
@@ -494,7 +516,8 @@ jac check myfile.jac
 
 | Error | Quick Fix |
 |-------|-----------|
-| Walker doesn't run | Add `can start with \`root entry { visit [-->]; }` |
+| Cache/setup errors (`jaclang.pycore`, `NodeAnchor`, stalling) | Run `jac purge` |
+| Walker doesn't run | Add `can start with Root entry { visit [-->]; }` |
 | Missing glob keyword | Use `glob var = value;` in `cl {}` blocks |
 | Enumerate unpacking | Use `for (i, x) in enumerate(...)` |
 | Attribute order | Put required attributes before defaults |

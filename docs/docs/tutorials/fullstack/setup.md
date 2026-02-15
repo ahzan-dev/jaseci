@@ -46,8 +46,8 @@ node Todo {
 }
 
 walker:pub get_todos {
-    can fetch with `root entry {
-        for todo in [-->](`?Todo) {
+    can fetch with Root entry {
+        for todo in [-->](?:Todo) {
             report todo;
         }
     }
@@ -55,7 +55,7 @@ walker:pub get_todos {
 
 # Frontend code (inside cl block)
 cl {
-    def:pub app() -> any {
+    def:pub app() -> JsxElement {
         has message: str = "Hello from Jac!";
 
         return <div>
@@ -126,12 +126,12 @@ The `cl { }` block marks frontend (client) code:
 ```jac
 # This is backend code (runs on server)
 walker api_endpoint {
-    can visit with `root entry { report {}; }
+    can visit with Root entry { report {}; }
 }
 
 # This is frontend code (runs in browser)
 cl {
-    def:pub MyComponent() -> any {
+    def:pub MyComponent() -> JsxElement {
         return <div>I run in the browser</div>;
     }
 }
@@ -155,12 +155,12 @@ cl {
 # Backend
 node User { has name: str = ""; }
 walker get_user {
-    can visit with `root entry { report {}; }
+    can visit with Root entry { report {}; }
 }
 
 # Frontend
 cl {
-    def:pub app() -> any {
+    def:pub app() -> JsxElement {
         return <div>App</div>;
     }
 }
@@ -194,7 +194,7 @@ myapp/
 import from models { User, Todo }
 
 walker get_user {
-    can visit with `root entry { report {}; }
+    can visit with Root entry { report {}; }
 }
 ```
 
@@ -205,7 +205,7 @@ walker get_user {
 cl {
     import from "./components/Header.cl.jac" { Header }
 
-    def:pub app() -> any {
+    def:pub app() -> JsxElement {
         return <div>
             <Header />
             <main>Content</main>
@@ -243,7 +243,7 @@ Then use in frontend:
 cl {
     import lodash;
 
-    def:pub app() -> any {
+    def:pub app() -> JsxElement {
         items = lodash.sortBy(["c", "a", "b"]);
         return <ul>{items.map(lambda i: any -> any { return <li>{i}</li>; })}</ul>;
     }
@@ -286,7 +286,7 @@ Create this minimal `main.jac`:
 
 ```jac
 cl {
-    def:pub app() -> any {
+    def:pub app() -> JsxElement {
         has count: int = 0;
 
         return <div style={{"textAlign": "center", "marginTop": "50px"}}>

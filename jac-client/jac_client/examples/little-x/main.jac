@@ -14,19 +14,19 @@ node Profile {
 
     can get with get_profile entry {
         follwers = [
-            {"id": jid(i), "username": i.username} for i in [self-->(`?Profile)]
+            {"id": jid(i), "username": i.username} for i in [self-->(?:Profile)]
         ];
         report {"user": self, "followers": follwers};
     }
 
     can follow with follow_request entry {
-        current_profile = [root-->(`?Profile)];
+        current_profile = [root-->(?:Profile)];
         current_profile[0] +>: Follow() :+> self;
         report self;
     }
 
     can un_follow with un_follow_request entry {
-        current_profile = [root-->(`?Profile)];
+        current_profile = [root-->(?:Profile)];
         follow_edge = [edge current_profile[0]->:Follow:->self];
         del follow_edge[0];
         report self;
@@ -58,20 +58,20 @@ node Tweet {
     }
 
     can like_tweet with like_tweet entry {
-        current_profile = [root-->(`?Profile)];
+        current_profile = [root-->(?:Profile)];
         self +>: Like() :+> current_profile[0];
         report self;
     }
 
     can remove_like with remove_like entry {
-        current_profile = [root-->(`?Profile)];
+        current_profile = [root-->(?:Profile)];
         like_edge = [edge self->:Like:->current_profile[0]];
         del like_edge[0];
         report self;
     }
 
     can comment with comment_tweet entry {
-        current_profile = [root-->(`?Profile)];
+        current_profile = [root-->(?:Profile)];
         comment_node = current_profile[0] +>: Post() :+> Comment(
             content=visitor.content
         );
@@ -89,10 +89,10 @@ node Tweet {
             likes=[i.username for i in [self->:Like:->]],
             comments=[
                 {
-                    "username": [i<--(`?Profile)][0].username,
+                    "username": [i<--(?:Profile)][0].username,
                     "id": jid(i),
                     "content": i.content
-                } for i in [self-->(`?Comment)]
+                } for i in [self-->(?:Comment)]
             ]
         );
     }
@@ -124,8 +124,8 @@ edge Like {}
 edge Post {}
 
 walker visit_profile {
-    can visit_profile with `root entry {
-        visit [-->(`?Profile)] else {
+    can visit_profile with Root entry {
+        visit [-->(?:Profile)] else {
             new_profile = here ++> Profile();
             grant(new_profile[0], level=ConnectPerm);
             visit new_profile;
@@ -140,10 +140,10 @@ walker update_profile(visit_profile) {
 walker get_profile(visit_profile) {}
 
 walker load_user_profiles {
-    can load_profiles with `root entry {
+    can load_profiles with Root entry {
         self.profiles: list = [];
         for each_root in allroots() {
-            profile = [each_root-->(`?Profile)][0];
+            profile = [each_root-->(?:Profile)][0];
             self.profiles.append({"name": profile.username, "id": jid(profile)});
         }
     }
@@ -192,9 +192,9 @@ walker load_feed(visit_profile) {
         results: list = [];
 
     can load with Profile entry {
-        visit [-->(`?Tweet)];
-        for user_node in [->:Follow:->(`?Profile)] {
-            visit [user_node-->(`?Tweet)];
+        visit [-->(?:Tweet)];
+        for user_node in [->:Follow:->(?:Profile)] {
+            visit [user_node-->(?:Tweet)];
         }
     }
 
@@ -223,7 +223,9 @@ cl obj ClientProfile {
 }
 
 # UI Components - Render a single tweet card
-cl def TweetCard(tweet: ClientTweet) -> any {
+cl def TweetCard(
+    tweet: ClientTweet
+) -> JsxElement {
     return
         <div
             class="tweet-card"
@@ -273,7 +275,7 @@ cl async def like_tweet_action(
 }
 
 # Render the main feed view
-cl def FeedView(tweets: list) -> any {
+cl def FeedView(tweets: list) -> JsxElement {
     return
         <div
             class="feed-container"
@@ -298,7 +300,7 @@ cl def FeedView(tweets: list) -> any {
 }
 
 # Render login form
-cl def LoginForm -> any {
+cl def LoginForm -> JsxElement {
     suggestions = ['good luck', 'have fun', 'enjoy the ride'];
     randomSuggestion = _.sample(suggestions);
     result = "Good luck with your journey!";
@@ -307,7 +309,7 @@ cl def LoginForm -> any {
             title="Login to LittleX"
             style={{"maxWidth": "400px", "margin": "50px auto"}}
         >
-            <Card.Meta title={randomSuggestion} description={result} />
+            <Card.Meta title={randomSuggestion} description={result}/>
             <form onSubmit={handle_login}>
                 <div style={{"marginBottom": "15px"}}>
                     <label style={{"display": "block", "marginBottom": "5px"}}>
@@ -386,7 +388,7 @@ cl async def handle_login(event: any) -> None {
 }
 
 # Render signup form
-cl def SignupForm -> any {
+cl def SignupForm -> JsxElement {
     return
         <div
             class="signup-container"
@@ -509,7 +511,7 @@ cl def logout_action -> None {
 }
 
 # Main App component with declarative router
-cl def:pub App -> any {
+cl def:pub App -> JsxElement {
     # Create routes array manually (workaround for JS compiler bug with named args)
     login_route = {
         "path": "/login",
@@ -551,7 +553,7 @@ cl def:pub App -> any {
 }
 
 # Helper to build navigation bar
-cl def build_nav_bar(route: str) -> any {
+cl def build_nav_bar(route: str) -> JsxElement {
     if not jacIsLoggedIn() or route == "/login" or route == "/signup" {
         return None;
     }
@@ -614,7 +616,7 @@ cl def build_nav_bar(route: str) -> any {
 }
 
 # Home view - simplified for testing reactive routing
-cl def HomeView -> any {
+cl def HomeView -> JsxElement {
     if not jacIsLoggedIn() {
         navigate("/login");
         return
@@ -642,7 +644,7 @@ cl def HomeView -> any {
 }
 
 # Profile view
-cl def ProfileView -> any {
+cl def ProfileView -> JsxElement {
     if not jacIsLoggedIn() {
         navigate("/login");
         return
@@ -676,6 +678,6 @@ cl def ProfileView -> any {
 }
 
 # Main SPA entry point - simplified with reactive routing
-cl def:pub jac_app -> any {
+cl def:pub jac_app -> JsxElement {
     return App();
 }

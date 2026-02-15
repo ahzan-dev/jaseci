@@ -67,7 +67,7 @@ Jac code is compiled to JavaScript using the Jac runtime:
 ```jac
 # Your Jac code
 cl {
-    def:pub app() -> any {
+    def:pub app() -> JsxElement {
         has count: int = 0;
         return <div>Count: {count}</div>;
     }
@@ -132,7 +132,7 @@ The generated HTML includes everything needed to run your app:
     <script id="__jac_init__" type="application/json">
       {"module": "main", "function": "app", "args": {}, "argOrder": [], "globals": {}}
     </script>
-    <script src="client.abc123.js" defer></script>
+    <script type="module" src="client.abc123.js"></script>
   </body>
 </html>
 ```
@@ -219,7 +219,7 @@ Import CSS files in your Jac code:
 cl import "./styles.css"
 
 cl {
-    def:pub app() -> any {
+    def:pub app() -> JsxElement {
         return <div className="container">Hello</div>;
     }
 }
@@ -233,7 +233,7 @@ Static assets (images, fonts, etc.) are handled automatically:
 
 ```jac
 cl {
-    def:pub app() -> any {
+    def:pub app() -> JsxElement {
         return <img src="/assets/logo.png" alt="Logo" />;
     }
 }
@@ -357,7 +357,7 @@ Use configuration for environment-specific settings:
 ```jac
 # main.jac
 cl {
-    def:pub app() -> any {
+    def:pub app() -> JsxElement {
         has count: int = 0;
 
         return <div style={{padding: "2rem"}}>
@@ -383,7 +383,7 @@ jac start main.jac
 ```jac
 # main.jac
 cl {
-    def:pub app() -> any {
+    def:pub app() -> JsxElement {
         has todos: list = [];
 
         async def loadTodos() -> None {

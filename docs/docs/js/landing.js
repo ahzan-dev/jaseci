@@ -630,7 +630,7 @@ document.addEventListener('DOMContentLoaded', function () {
 const tabsData = [
     {
         tagline: "Jac Supersets Python",
-        summary: `Jac is a drop-in replacement for Python and supersets Python, much like Typescript supersets Javascript or C++ supersets C. It maintains full interoperability with the Python ecosystem, introducing new features to minimize complexity and accelerate AI application development. We also provide library mode.`,
+        summary: `Jac supersets Python and JavaScript, much like TypeScript supersets JavaScript or C++ supersets C. It maintains full interoperability with the Python ecosystem, introducing new features to minimize complexity and accelerate AI application development. We also provide library mode.`,
         filename: "distance_calculator.jac",
         code: `
 import math;
@@ -726,8 +726,8 @@ node Trainer {
 walker FitnessAgent {
     has gear: dict = {};
 
-    can start with \`root entry {
-        visit [-->(\`?Equipment)];
+    can start with Root entry {
+        visit [-->(?:Equipment)];
     }
 
     """Create a personalized workout plan based on available equipment and space."""
@@ -735,8 +735,8 @@ walker FitnessAgent {
 }
 
 walker CoachWalker(FitnessAgent) {
-    can get_plan with \`root entry {
-        visit [-->(\`?Trainer)];
+    can get_plan with Root entry {
+        visit [-->(?:Trainer)];
     }
 }
 

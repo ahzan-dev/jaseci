@@ -34,11 +34,11 @@ import from jaclang.project.config { get_config }
 
 with entry {
     if TYPE_CHECKING {
-        import from jaclang.pycore.constructs { Archetype, WalkerArchetype }
+        import from jaclang.jac0core.constructs { Archetype, WalkerArchetype }
     }
 }
 
-glob JsonValue: TypeAlias = None | str | int | float | bool | <>list['JsonValue'] | <>dict[
+glob JsonValue: TypeAlias = None | str | int | float | bool | list['JsonValue'] | dict[
          (str, 'JsonValue')
      ],
      StatusCode: TypeAlias = Literal[(200, 201, 400, 401, 404, 500, 503)];
@@ -59,7 +59,7 @@ obj UserData {
 
 """Type-safe serializer for Jac objects."""
 obj JacSerializer {
-    static def serialize(<>obj: object) -> JsonValue;
+    static def serialize(`obj: object) -> JsonValue;
     static def _serialize_archetype(arch: Archetype) -> dict[str, JsonValue];
 }
 
@@ -226,7 +226,8 @@ obj JacAPIServer {
     obj RestSpecs {
         has method: str = "",
             path: str = "",
-            webhook: bool = False;
+            protocol: APIProtocol = APIProtocol.HTTP,
+            broadcast: bool = False;
     }
 
     def postinit -> None;
@@ -245,7 +246,11 @@ obj JacAPIServer {
 
     def get_client_bundle_code -> str;
     def print_endpoint_docs -> None;
-    def start(dev: bool = False, no_client: bool = False) -> None;
+    def start(
+        dev: bool = False,
+        no_client: bool = False,
+        on_ready: Callable[[], None] | None = None
+    ) -> None;
 }
 
 """Print comprehensive documentation for all endpoints that would be generated."""

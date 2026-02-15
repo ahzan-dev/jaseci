@@ -6,6 +6,136 @@ This page documents significant breaking changes in Jac and Jaseci that may affe
 
 MTLLM library is now deprecated and replaced by the byLLM package. In all place where `mtllm` was used before can be replaced with `byllm`.
 
+### CLI Dependency Commands Redesigned (0.10.0)
+
+The `jac add`, `jac install`, `jac remove`, and `jac update` commands were redesigned. Key behavioral changes:
+
+- `jac add` now **requires** at least one package argument (previously, calling `jac add` with no args silently fell through to install)
+- `jac add` without a version spec now queries the installed version and records `~=X.Y` (previously recorded `>=0.0.0`)
+- `jac install` now syncs all dependency types (pip, git, and plugin-provided like npm)
+- New `jac update` command for updating dependencies to latest compatible versions
+- Virtual environment is now at `.jac/venv/` instead of `.jac/packages/`
+
+### KWESC_NAME Syntax Changed from `<>` to Backtick
+
+Keyword-escaped names now use a backtick (`` ` ``) prefix instead of the angle-bracket (`<>`) prefix. This affects any identifier that uses a Jac keyword as a variable, field, or parameter name.
+
+**Before:**
+
+```jac
+glob <>node = 10;
+glob <>walker = 30;
+
+obj Foo {
+    has <>type: str = "default";
+}
+
+myobj = otherobj.<>walker.<>type;
+```
+
+**After:**
+
+```jac
+glob `node = 10;
+glob `walker = 30;
+
+obj Foo {
+    has `type: str = "default";
+}
+
+myobj = otherobj.`walker.`type;
+```
+
+**Note:** Builtin type names (`list`, `dict`, `set`, `tuple`, `any`, `type`, `bytes`, `int`, `float`, `str`, `bool`) do **not** need backtick escaping when used in expression contexts (function calls, type annotations, isinstance arguments). Backtick is only needed when using them as field, variable, or parameter names:
+
+```jac
+# No backtick needed (expression context)
+x = list(items);
+y: tuple[(int, int)] = (1, 2);
+if isinstance(val, dict) { ... }
+
+# Backtick needed (identifier context)
+has `type: str = "default";
+`bytes = read_data();
+```
+
+**Migration:** Find and replace all `<>` keyword escape prefixes with `` ` `` in your `.jac` files.
+
+### Backtick Type Operator Removed
+
+The backtick (`` ` ``) type operator (`TYPE_OP`) and `TypeRef` AST node have been removed from the language. This affects two areas: walker event signatures and filter comprehensions.
+
+#### Walker Entry/Exit Signatures
+
+The `` `root `` syntax for referencing the Root type is replaced with `Root` (capital R).
+
+**Before:**
+
+```jac
+walker MyWalker {
+    can start with `root entry {
+        visit [-->];
+    }
+    can finish with `root exit {
+        print("done");
+    }
+}
+```
+
+**After:**
+
+```jac
+walker MyWalker {
+    can start with Root entry {
+        visit [-->];
+    }
+    can finish with Root exit {
+        print("done");
+    }
+}
+```
+
+**Union types also use `Root`:**
+
+```jac
+# Before: can start with `root | MyNode entry {
+# After:
+can start with Root | MyNode entry {
+    visit [-->];
+}
+```
+
+#### Filter Comprehensions
+
+The typed filter syntax changes from `` (`?Type) `` and `` (`?Type:condition) `` to `(?:Type)` and `(?:Type, condition)`.
+
+**Before:**
+
+```jac
+# Type-only filter
+visit [-->](`?MyNode);
+
+# Typed filter with comparison
+visit [-->](`?Year:year==2025);
+```
+
+**After:**
+
+```jac
+# Type-only filter
+visit [-->](?:MyNode);
+
+# Typed filter with comparison
+visit [-->](?:Year, year==2025);
+```
+
+**Migration Steps:**
+
+1. Replace all `` `root `` with `Root` in walker `entry`/`exit` declarations
+2. Replace `` (`?Type) `` with `(?:Type)` in filter comprehensions
+3. Replace `` (`?Type:condition) `` with `(?:Type, condition)` -- note the comma separator instead of colon
+4. The `root` keyword (lowercase, no backtick) for the root instance is unchanged -- `root spawn`, `root ++>`, etc. remain the same
+
 ### BrowserRouter Migration (jac-client 0.2.12)
 
 Client-side routing has migrated from `HashRouter` to `BrowserRouter`. URLs now use clean paths instead of hash-based URLs.
@@ -95,7 +225,7 @@ walker AddTodo { has title: str; }
 ```jac
 # main.cl.jac - auto-annexed to main.jac (no explicit import needed)
 cl {
-    def:pub app -> any {
+    def:pub app -> JsxElement {
         return <div>Hello World</div>;
     }
 }
@@ -113,7 +243,7 @@ walker AddTodo { has title: str; }
 cl {
     import from .frontend { app as ClientApp }
 
-    def:pub app -> any {
+    def:pub app -> JsxElement {
         return <ClientApp />;
     }
 }
@@ -121,7 +251,7 @@ cl {
 
 ```jac
 # frontend.cl.jac - standalone client module (renamed from main.cl.jac)
-def:pub app -> any {
+def:pub app -> JsxElement {
     return <div>Hello World</div>;
 }
 ```
@@ -142,7 +272,7 @@ def:pub app -> any {
    cl {
        import from .frontend { app as ClientApp }
 
-       def:pub app -> any {
+       def:pub app -> JsxElement {
            return <ClientApp />;
        }
    }
@@ -155,7 +285,7 @@ def:pub app -> any {
    walker AddTodo { has title: str; }  # Stub for RPC calls
    walker ListTodos {}
 
-   def:pub app -> any { ... }
+   def:pub app -> JsxElement { ... }
    ```
 
 **Note:** `.cl.jac` files can still have their own `.impl.jac` annexes for separating declarations from implementations.
@@ -215,7 +345,7 @@ walker MyWalker {
         if some_condition { disengage; }
         visit [-->];
     }
-    can cleanup with `root exit {
+    can cleanup with Root exit {
         # This WOULD run before disengage in old semantics
         print("Cleanup");
     }
@@ -227,7 +357,7 @@ walker MyWalker {
         if some_condition { disengage; }
         visit [-->];
     }
-    can cleanup with `root entry {
+    can cleanup with Root entry {
         # Use entry to ensure this runs before any disengage
         print("Cleanup will run");
     }
@@ -937,7 +1067,7 @@ The permission management API has been renamed to better reflect its purpose and
 
 ```jac
 walker create_item {
-    can create with `root entry {
+    can create with Root entry {
         new_item = spawn Item(name="New Item");
         Jac.unrestrict(new_item, level="CONNECT");  # Grant permissions
         Jac.restrict(new_item, level="WRITE");      # Revoke permissions
@@ -949,7 +1079,7 @@ walker create_item {
 
 ```jac
 walker create_item {
-    can create with `root entry {
+    can create with Root entry {
         new_item = spawn Item(name="New Item");
         Jac.perm_grant(new_item, level="CONNECT");  # Grant permissions
         Jac.perm_revoke(new_item, level="WRITE");   # Revoke permissions

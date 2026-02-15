@@ -127,6 +127,13 @@ def lint(paths: list, fix: bool = False, ignore: str = "") -> int;
             help="Also apply auto-lint fixes in the same pass",
             short="l"
         ),
+        Arg.create(
+            "check",
+            typ=bool,
+            default=False,
+            help="Check if files are formatted without modifying them (exit 1 if unformatted)",
+            short="c"
+        ),
 
     ],
     examples=[
@@ -134,11 +141,14 @@ def lint(paths: list, fix: bool = False, ignore: str = "") -> int;
         ("jac format myproject/", "Format all files in directory"),
         ("jac format myfile.jac --to_screen", "Preview formatted output"),
         ("jac format . --lintfix", "Format and auto-fix lint violations"),
+        ("jac format . --check", "Check formatting without modifying files"),
 
     ],
     group="analysis"
 )
-def format(paths: list, to_screen: bool = False, lintfix: bool = False) -> int;
+def format(
+    paths: list, to_screen: bool = False, lintfix: bool = False, check: bool = False
+) -> int;
 
 """Run the test suite in the specified .jac file or directory."""
 @registry.command(
@@ -187,7 +197,7 @@ def format(paths: list, to_screen: bool = False, lintfix: bool = False) -> int;
     ],
     group="analysis"
 )
-def test(
+def `test(
     filepath: str = "",
     test_name: str = "",
     filter: str = "",
@@ -206,3 +216,33 @@ def test(
     group="analysis"
 )
 def gen_parser -> int;
+
+"""Extract grammar from the Jac parser and print in EBNF or Lark format."""
+@registry.command(
+    name="grammar",
+    help="Extract and print the Jac grammar",
+    args=[
+        Arg.create(
+            "lark",
+            typ=bool,
+            default=False,
+            help="Output in Lark format instead of EBNF"
+        ),
+        Arg.create(
+            "output",
+            default="",
+            help="Write output to file instead of stdout",
+            short="o"
+        ),
+
+    ],
+    examples=[
+        ("jac grammar", "Print EBNF grammar to stdout"),
+        ("jac grammar --lark", "Print Lark grammar to stdout"),
+        ("jac grammar -o jac.ebnf", "Write EBNF grammar to file"),
+        ("jac grammar --lark -o jac.lark", "Write Lark grammar to file"),
+
+    ],
+    group="analysis"
+)
+def grammar(lark: bool = False, output: str = "") -> int;
