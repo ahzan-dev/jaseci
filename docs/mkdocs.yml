@@ -39,6 +39,7 @@ nav:
               - Multimodal: "tutorials/ai/multimodal.md"
       - Full-Stack Development:
           - jac-client Reference: "reference/plugins/jac-client.md"
+          - Frontend Testing: "reference/plugins/jac-client-testing.md"
           - Learn by Doing:
               - Project Setup: "tutorials/fullstack/setup.md"
               - Components: "tutorials/fullstack/components.md"
